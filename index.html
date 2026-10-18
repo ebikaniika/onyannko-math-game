@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#faf7ef">
+  <title>おにゃんこ大戦争</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="catalog.js" defer></script>
+  <script src="team.js" defer></script>
+  <script src="math.js" defer></script>
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <main class="game-shell" id="game-content">
+    <header class="page-header">
+      <div><p class="eyebrow">のんびり草原、ときどき大戦争。</p><h1><span class="brand-cat">ฅ</span> おにゃんこ大戦争<span class="title-dot">.</span></h1></div>
+      <span class="edition">小学5年生 · 分数チャレンジ</span>
+    </header>
+    <section class="battle-panel" aria-label="草原の戦場">
+      <div class="toolbar"><div class="stage"><span class="stage-icon">✿</span><div><small id="stage-number">STAGE 01 / 30</small><strong id="stage-name">はじまりの草原</strong></div></div><div class="wallet"><span>●</span><div><small>おさいふ <span id="income-label">正解で増える！</span></small><strong><span id="money">0</span><small> 円</small></strong></div></div><button id="pause" class="small-button" disabled>一時停止</button></div>
+      <ol class="stage-progress" aria-label="全30ステージの進み具合"><li data-stage="0" class="stage-current" aria-current="step">1 はじまりの草原</li><li data-stage="1" class="stage-locked">2 こもれびの草原</li><li data-stage="2" class="stage-locked">3 夕やけの決戦</li></ol>
+      <div class="stage-tools"><label for="stage-select">ステージ</label><select id="stage-select" aria-label="開放したステージを選ぶ"></select><span id="field-count">味方 0/15 ・ 敵 0/15</span></div><p class="stage-hint" id="stage-hint">まずは猫たちの力を合わせよう！</p>
+      <div class="battlefield">
+        <canvas id="battle" width="1200" height="450" role="img" aria-label="左の猫のお城から出撃し、右のモンスターのお城を攻める戦場"></canvas>
+        <div class="castle-hud ally-hud"><div><strong>おにゃんこ城</strong><span id="ally-hp">1,200 / 1,200</span></div><div class="hp-track"><div id="ally-bar"></div></div></div>
+        <div class="castle-hud enemy-hud"><div><strong>モンスター城</strong><span id="enemy-hp">1,600 / 1,600</span></div><div class="hp-track"><div id="enemy-bar"></div></div></div>
+        <div class="overlay" id="overlay"><div class="dialog"><span id="result-icon" class="result-icon">ฅ</span><p class="eyebrow" id="dialog-label">READY, MEOW?</p><h2 id="dialog-title">草原へ、しゅつげき！</h2><p id="dialog-description">なかまを呼んで、お城を守ろう。<br>右のモンスター城をこわせば勝利！</p><button id="start" class="primary-button">あそびはじめる <span>→</span></button></div></div>
+      </div>
+      <div class="battle-caption"><span><i></i><span id="status" role="status">準備完了！ なかまの猫たちが待っています。</span></span><span id="timer">00:00</span></div>
+    </section>
+    <section class="learning-bar" aria-label="算数とゲームの設定">
+      <div><label for="game-mode">あそび方</label><select id="game-mode"><option value="learning">学習モード：正解でお金が増える</option><option value="normal">通常モード：時間でもお金が増える</option></select><small id="mode-help">最初は0円。算数に正解して猫を呼ぼう！ 変更はスタート前・勝敗後にできます。</small></div>
+      <button id="challenge" class="primary-button">✎ 算数チャレンジ</button>
+      <button id="sound" class="small-button" aria-pressed="true">音：オン</button>
+    </section>
+    <details id="roster-panel" class="roster-panel"><summary>出撃メンバーをえらぶ <span id="team-count">5 / 5種類</span></summary><p>20種類から5種類を選ぼう。選んでいる猫を押すと外せます。変更はスタート前・勝敗後にできます。</p><div id="roster-list" class="roster-list"></div><p id="roster-message" role="status">選んだ5種類が、下の出撃ボタンに並びます。</p></details>
+    <section class="troops" aria-label="出撃する猫を選ぶ">
+      <div class="section-heading"><h2>なかまを呼ぼう <span>5種類の猫で力を合わせよう！</span></h2><span class="keyboard-hint">キーボード 1〜5 でも出撃</span></div>
+      <div class="unit-grid">
+        <button class="unit-card" data-kind="basic" disabled><span class="unit-portrait basic"><canvas width="110" height="100" data-portrait="basic" aria-hidden="true"></canvas><kbd>1</kbd></span><span class="unit-info"><strong>しろねこ</strong><span>すばやく出撃、前線の主役。</span><span class="unit-tags">バランス型 · 再出撃 1秒</span></span><span class="unit-price">60<small> 円</small><span class="availability">出撃する →</span></span><span class="cooldown"></span></button>
+        <button class="unit-card" data-kind="tank" disabled><span class="unit-portrait tank"><canvas width="110" height="100" data-portrait="tank" aria-hidden="true"></canvas><kbd>2</kbd></span><span class="unit-info"><strong>たてねこ</strong><span>じょうぶな盾で、なかまを守る。</span><span class="unit-tags">体力たっぷり · 再出撃 3秒</span></span><span class="unit-price">140<small> 円</small><span class="availability">出撃する →</span></span><span class="cooldown"></span></button>
+        <button class="unit-card" data-kind="mage" disabled><span class="unit-portrait mage"><canvas width="110" height="100" data-portrait="mage" aria-hidden="true"></canvas><kbd>3</kbd></span><span class="unit-info"><strong>まほうねこ</strong><span>少し遠くから、きらりと攻撃。</span><span class="unit-tags">遠距離型 · 再出撃 4秒</span></span><span class="unit-price">220<small> 円</small><span class="availability">出撃する →</span></span><span class="cooldown"></span></button>
+        <button class="unit-card" data-kind="ninja" disabled><span class="unit-portrait ninja"><canvas width="110" height="100" data-portrait="ninja" aria-hidden="true"></canvas><kbd>4</kbd></span><span class="unit-info"><strong>にんじゃねこ</strong><span>身軽にダッシュ！ 体力はひかえめ。</span><span class="unit-tags">すばやさ型 · 再出撃 1.8秒</span></span><span class="unit-price">90<small> 円</small><span class="availability">出撃する →</span></span><span class="cooldown"></span></button>
+        <button class="unit-card" data-kind="knight" disabled><span class="unit-portrait knight"><canvas width="110" height="100" data-portrait="knight" aria-hidden="true"></canvas><kbd>5</kbd></span><span class="unit-info"><strong>きしねこ</strong><span>じょうぶなよろいと、強い一撃。</span><span class="unit-tags">パワー型 · 再出撃 5秒</span></span><span class="unit-price">300<small> 円</small><span class="availability">出撃する →</span></span><span class="cooldown"></span></button>
+      </div>
+    </section>
+    <footer><span>あそびかた <b>① 算数でお金をゲット</b> → <b>② 猫を呼ぶ</b> → <b>③ バトルはおまかせ！</b></span><span>ログイン不要・個人情報の収集なし</span></footer>
+  </main>
+  <div id="math-modal" class="math-modal" role="dialog" aria-modal="true" aria-labelledby="math-title" hidden>
+    <div class="math-dialog" id="math-scroll">
+      <div class="math-header"><div><p class="eyebrow">FRACTION CHALLENGE</p><h2 id="math-title">算数チャレンジ</h2></div><button id="math-close" class="small-button">戦闘へ戻る</button></div>
+      <p class="math-note">問題を開いている間、戦闘も時間もストップ。ゆっくり考えて大丈夫！</p>
+      <label for="math-level">レベルを選ぼう</label>
+      <select id="math-level"><option value="1">レベル1：簡単な約分 ／ 正解で100円</option><option value="2">レベル2：難しい約分 ／ 正解で200円</option><option value="3">レベル3：2つの分数の通分 ／ 正解で300円</option></select>
+      <p id="question-instruction"></p><div id="question-fractions" class="question-fractions"></div>
+      <div id="math-options" class="math-options" aria-label="4つの答えから1つ選んでください"></div>
+      <div id="math-feedback" class="math-feedback" role="status" aria-live="polite" hidden></div>
+      <div class="math-actions"><span id="math-progress"></span><button id="math-next" class="primary-button" hidden>次の問題 →</button></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -47,3 +47,9 @@ const STAGES = STAGE_NAMES.map((name,i) => {
     hint:i===29?"最後の城！ 学んだ力と、選んだ仲間で大勝利を目指そう。":`全30ステージの${i+1}番目。敵味方それぞれ15体まで。仲間の組み合わせを工夫しよう！`,
     sky:p[0],hill:p[1],nearHill:p[2],grass:p[3]};
 });
+
+// 2026-10-19: spawn frequency is 80% of the previous version.
+const ENEMY_SPAWN_RATE = 0.8;
+function enemySpawnInterval(stage,time) {
+  return Math.max(stage.minSpawn,stage.spawn-time/100)/ENEMY_SPAWN_RATE;
+}

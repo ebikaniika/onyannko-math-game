@@ -18,7 +18,7 @@ function reset(stageIndex = 0) {
   const learning = $("game-mode").value !== "normal";
   const stage = STAGES[stageIndex];
   state = { mode: "ready", stageIndex, learning, time: 0, money: learning ? 0 : 180, allyHP: 1200, enemyHP: stage.enemyHP,
-    units: [], effects: [], cooldowns: Object.fromEntries(ALLY_KEYS.map(key=>[key,0])), nextEnemy: 3, wave: 0, id: 0 };
+    units: [], effects: [], cooldowns: Object.fromEntries(ALLY_KEYS.map(key=>[key,0])), nextEnemy: 3 / ENEMY_SPAWN_RATE, wave: 0, id: 0 };
   quizCount = 0; quizCorrect = 0; needsRender = true; buildScenery(); updateHUD();
 }
 function start() {
@@ -159,8 +159,8 @@ function update(dt) {
   if (state.nextEnemy <= 0) {
     const stage = STAGES[state.stageIndex];
     if(addUnit(state.time > stage.hornAfter && (state.wave+1) % stage.hornEvery === 0 ? "horn" : "slime", "enemy")) {
-      state.wave++;state.nextEnemy += Math.max(stage.minSpawn, stage.spawn - state.time / 100);
-    } else state.nextEnemy=.5;
+      state.wave++;state.nextEnemy += enemySpawnInterval(stage,state.time);
+    } else state.nextEnemy=.5 / ENEMY_SPAWN_RATE;
   }
   const sides={ally:state.units.filter(u=>u.side==="ally"),enemy:state.units.filter(u=>u.side==="enemy")};
   for (const unit of state.units) {

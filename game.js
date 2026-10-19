@@ -17,6 +17,7 @@ const spriteCache = new Map();
 function reset(stageIndex = 0) {
   const learning = $("game-mode").value !== "normal";
   const stage = STAGES[stageIndex];
+  selectedTeam=hardTeamForStage(stageIndex);renderLoadout();
   state = { mode: "ready", stageIndex, learning, time: 0, money: learning ? 0 : 180, allyHP: 1200, enemyHP: stage.enemyHP,
     units: [], effects: [], cooldowns: Object.fromEntries(ALLY_KEYS.map(key=>[key,0])), nextEnemy: 3 / ENEMY_SPAWN_RATE, wave: 0, id: 0 };
   quizCount = 0; quizCorrect = 0; needsRender = true; buildScenery(); updateHUD();
@@ -48,8 +49,8 @@ function addUnit(kind, side) {
   const type = { ...TYPES[kind] };
   if(side === "enemy") {
     const stage = STAGES[state.stageIndex];
-    type.hp = Math.round(type.hp * stage.hpScale);
-    type.damage = Math.round(type.damage * stage.damageScale);
+    type.hp = Math.round(type.hp * stage.hpScale) * stage.enemyMultiplier;
+    type.damage = Math.round(type.damage * stage.damageScale) * stage.enemyMultiplier;
   }
   state.units.push({ ...type, kind, side, x: side === "ally" ? 158 : 1042, hp: type.hp,
     maxHP: type.hp, attackWait: .3, attackFlash: 0, id: state.id++, walking: true });
@@ -66,6 +67,7 @@ function finish(won) {
   $("dialog-description").innerHTML = won ? (finalStage ? "猫たちの力で、草原に平和が戻ったよ。<br>算数もバトルも、よくがんばったね！" : `次は「${STAGES[state.stageIndex + 1].name}」。<br>お金とHPはリセット。もっと強い敵に挑もう！`) : "同じステージに、もう一度挑戦できるよ。<br>たてねこと、きしねこで前線を守ろう！";
   $("start").textContent = won ? (finalStage ? "ステージ1からもう一度 →" : `ステージ${state.stageIndex + 2}へ →`) : "このステージに再挑戦 →";
   $("status").textContent = won ? (finalStage ? "全30ステージクリア！ 猫たちと算数の力で大勝利！" : "勝利！ 次のステージへの道が開いたよ。") : "敗北… このステージにもう一度チャレンジしよう！";
+  if(won) $("dialog-description").innerHTML += "<br>" + hardChangeText(state.stageIndex);
   $("overlay").hidden = false; updateHUD();
 }
 function pause() {
@@ -96,24 +98,27 @@ function nextQuestion() {
   $("math-scroll").scrollTop = 0;
   quizQuestion = FractionQuiz.next(Number($("math-level").value)); quizAnswered = false;
   const q = quizQuestion;
-  $("question-instruction").textContent = q.level < 3 ? "約分して、これ以上約分できない分数を選ぼう。" : `2つの分数の分母を、どちらも ${q.common} にそろえよう。`;
-  $("question-fractions").innerHTML = FractionQuiz.html(q.source);
+  $("question-instruction").textContent = q.instruction;
+  $("question-fractions").innerHTML = q.source ? FractionQuiz.html(q.source) : `<span class="topic-label">${FractionQuiz.topics[q.topic].name}</span>`;
   $("math-options").replaceChildren();
   q.options.forEach((option,index) => {
     const button = document.createElement("button"); button.type = "button"; button.className = "answer-button";
     button.innerHTML = `<span class="answer-number">${index+1}</span>${FractionQuiz.html(option)}`;
-    button.setAttribute("aria-label", `答え${index+1}：` + option.map(([n,d])=>`${d}分の${n}`).join(" と "));
+    button.setAttribute("aria-label", `答え${index+1}：` + FractionQuiz.accessible(option));
     button.addEventListener("click", () => answerQuestion(index));
     $("math-options").appendChild(button);
   });
   $("math-feedback").hidden = true; $("math-next").hidden = true;
-  $("math-progress").textContent = `各レベル24問 ／ 正解 ${quizCorrect} ・回答 ${quizCount}`;
+  const bank=FractionQuiz.stats($("math-level").value);
+  $("math-progress").textContent = `全${bank.total}問 ／ この分野${bank.pool}問・${bank.cycle}巡目 ／ 正解 ${quizCorrect} ・回答 ${quizCount}`;
 }
 function answerQuestion(index) {
   if (state.mode !== "quiz" || quizAnswered || !quizQuestion.options[index]) return;
   quizAnswered = true; quizCount++;
   const q = quizQuestion, selected = q.options[index], correct = FractionQuiz.equal(selected,q.correct);
+  const lostMoney=state.money;
   if (correct) { state.money += q.reward; quizCorrect++; playRewardSound(); }
+  else state.money=0;
   const buttons = [...$("math-options").children];
   buttons.forEach((button,i)=>{
     button.disabled = true;
@@ -122,15 +127,15 @@ function answerQuestion(index) {
   });
   const feedback = $("math-feedback"); feedback.hidden = false;
   feedback.className = "math-feedback " + (correct ? "is-correct" : "is-wrong");
-  const title=document.createElement("strong"); title.textContent=correct ? `正解！ ＋${q.reward}円をゲット！` : "おしい！ 今回の報酬は0円。解き方を見てみよう。";
+  const title=document.createElement("strong"); title.textContent=correct ? `正解！ ＋${q.reward}円をゲット！` : `不正解…。所持金 ${Math.floor(lostMoney)}円 → 0円。解説を読んで再挑戦しよう。`;
   const explanation=document.createElement("p");
-  // Text is generated exclusively from the fixed integer question bank.
+  // All generated data uses verified positive integers and local static templates.
   explanation.innerHTML=FractionQuiz.explain(q,selected).replace(/(\d+)\/(\d+)/g,(_,n,d)=>FractionQuiz.html([[Number(n),Number(d)]]));
   const result=document.createElement("div"); result.className="feedback-answer"; result.innerHTML="正しい答え：" + FractionQuiz.html(q.correct);
   feedback.replaceChildren(title,explanation,result);
   $("math-progress").textContent = `正解 ${quizCorrect} ・回答 ${quizCount} ／ おさいふ ${Math.floor(state.money)}円`;
   $("math-next").hidden = false; updateHUD();
-  $("status").textContent = correct ? `算数に正解！ ${q.reward}円ふえたよ。猫を呼んでみよう！` : "算数にチャレンジ！ 解説を読んで、また挑戦しよう。";
+  $("status").textContent = correct ? `算数に正解！ ${q.reward}円ふえたよ。猫を呼んでみよう！` : "不正解で所持金が0円になったよ。次の正解で、またためよう！";
 }
 function playRewardSound() {
   if(!soundEnabled) return;

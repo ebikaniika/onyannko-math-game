@@ -18,19 +18,11 @@ function buildControls() {
     reset(index);$("overlay").hidden=false;
     $("result-icon").textContent="ฅ";$("dialog-label").textContent=`STAGE ${index+1} / 30`;
     $("dialog-title").textContent=STAGES[index].name;
-    $("dialog-description").innerHTML="出撃メンバー5種類をえらんで、挑戦しよう！<br>学習チャレンジで、お金をためられます。";
-    $("start").textContent="このステージであそぶ →";$("status").textContent="準備完了。出撃メンバーと学習問題をチェックしよう！";
+    $("dialog-description").innerHTML="ステージで決まった5種類で、挑戦しよう！<br>学習チャレンジで、お金をためられます。";
+    $("start").textContent="このステージであそぶ →";$("status").textContent="高難易度：不正解は所持金0円。決まった5種類で挑戦しよう！";
   });
 }
-function toggleTeam(key) {
-  if(!["ready","won","lost"].includes(state.mode) || !ALLY_KEYS.includes(key)) return;
-  const index=selectedTeam.indexOf(key);
-  if(index>=0) selectedTeam.splice(index,1);
-  else if(selectedTeam.length<5) selectedTeam.push(key);
-  else {$("roster-message").textContent="5種類まで選べるよ。選んでいる猫を1種類外してから追加しよう。";return;}
-  $("roster-message").textContent=selectedTeam.length===5?"準備完了！ この5種類で出撃できるよ。":`あと${5-selectedTeam.length}種類えらぼう。`;
-  renderLoadout();updateHUD();
-}
+function toggleTeam() { /* Hard mode uses the prescribed five-unit team. */ }
 function renderLoadout() {
   cards.forEach((card,index)=>{
     const key=selectedTeam[index],type=TYPES[key];card.dataset.kind=key||"";
@@ -45,9 +37,10 @@ function updateControls() {
   const editable=["ready","won","lost"].includes(state.mode);
   $("stage-select").disabled=!editable;$("stage-select").value=String(state.stageIndex);
   stageOptions.forEach((option,index)=>{option.disabled=index>unlockedStage;});
-  $("team-count").textContent=`${selectedTeam.length} / 5種類`;
+  $("team-count").textContent="自動入替・5種類";
+  $("roster-message").textContent=hardChangeText(state.stageIndex);
   $("start").disabled=selectedTeam.length!==5;
-  rosterButtons.forEach(({key,button})=>{button.disabled=!editable;button.setAttribute("aria-pressed",String(selectedTeam.includes(key)));});
+  rosterButtons.forEach(({key,button})=>{button.disabled=true;button.setAttribute("aria-pressed",String(selectedTeam.includes(key)));});
   const start=Math.min(Math.max(0,state.stageIndex-1),STAGES.length-3);
   document.querySelectorAll("[data-stage]").forEach((item,slot)=>{
     const index=start+slot;item.dataset.stage=String(index);item.textContent=`${index+1} ${STAGES[index].name}`;

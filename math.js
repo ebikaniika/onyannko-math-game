@@ -1,76 +1,135 @@
 "use strict";
-
-// Exact integer arithmetic; every level contains 24 different questions.
+// Integer-only arithmetic. No network, stored records, or external dependencies.
 const FractionQuiz = (() => {
-  const gcd = (a, b) => b ? gcd(b, a % b) : a;
-  const shuffle = list => {
-    const copy = [...list];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  };
-  const easy = [[2,4],[2,6],[2,8],[2,10],[2,12],[4,6],[4,8],[4,10],
-    [4,12],[6,8],[6,10],[6,12],[3,6],[3,9],[3,12],[6,9],
-    [9,12],[4,16],[8,12],[8,16],[5,10],[5,15],[10,15],[10,20]];
-  const hard = [[18,24],[24,36],[30,42],[36,48],[42,56],[48,72],
-    [54,72],[60,84],[66,88],[72,96],[78,104],[84,108],
-    [90,126],[96,144],[102,136],[108,144],[114,152],[120,168],
-    [126,162],[132,180],[144,168],[150,180],[84,132],[72,120]];
-  const pairs = [[[1,2],[1,3]],[[2,3],[1,4]],[[3,4],[1,6]],[[1,3],[2,5]],
-    [[2,5],[3,10]],[[1,4],[2,3]],[[3,5],[1,2]],[[5,6],[1,4]],
-    [[2,7],[1,3]],[[3,8],[1,4]],[[4,9],[1,6]],[[5,12],[3,8]],
-    [[1,5],[2,3]],[[3,7],[1,2]],[[5,8],[2,3]],[[1,6],[2,9]],
-    [[4,5],[5,6]],[[2,9],[1,3]],[[3,10],[1,4]],[[5,9],[1,2]],
-    [[1,8],[3,4]],[[2,7],[3,14]],[[7,12],[2,3]],[[3,4],[2,5]]];
-  function reduction(source, level, i) {
-    const [n,d] = source, divisor = gcd(n,d), answer = [n/divisor,d/divisor];
-    return { id: `${level}-${i}`, level, source: [source], divisor,
-      correct: [answer], reward: level * 100,
-      wrong: [[[answer[0]*2,answer[1]*2]],[[answer[0]+1,answer[1]]],[[answer[0],answer[1]+1]]] };
+ const gcd=(a,b)=>b?gcd(b,a%b):a,lcm=(a,b)=>a/gcd(a,b)*b;
+ const divisors=n=>Array.from({length:n},(_,i)=>i+1).filter(d=>n%d===0);
+ const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+ const shuffle=list=>{const a=[...list];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+ const topics={
+  1:{name:"約分",reward:100},2:{name:"通分",reward:200},3:{name:"暗算の割り算",reward:300},
+  4:{name:"公倍数",reward:200},5:{name:"公約数",reward:200},6:{name:"最小公倍数",reward:300},7:{name:"最大公約数",reward:300},8:{name:"約数",reward:100}
+ };
+ const banks=Object.fromEntries(Object.keys(topics).map(k=>[k,[]]));
+ function add(topic,kind,prompt,correct,wrongs,meta={},source=null){
+  const wrong=[];for(const x of wrongs)if(!equal(x,correct)&&!wrong.some(y=>equal(x,y)))wrong.push(x);
+  if(wrong.length<3)throw Error('Not enough choices: '+prompt);
+  banks[topic].push({id:`${kind}-${banks[topic].length}`,level:topic,topic,kind,prompt,instruction:prompt,correct,wrong:wrong.slice(0,3),reward:topics[topic].reward,...meta,source});
+ }
+ const spread=(a,limit)=>a.length<=limit?a:Array.from({length:limit},(_,i)=>a[Math.floor(i*a.length/limit)]);
+ let candidates=[];
+ for(let d=4;d<=20;d++)for(let n=2;n<d;n++)if(gcd(n,d)>1)candidates.push([n,d]);
+ for(const [n,d] of spread(candidates,50)){
+  const g=gcd(n,d),a=n/g,b=d/g;
+  add(1,'reduction','約分して、これ以上約分できない分数を選ぼう。',[[a,b]],[[[a*2,b*2]],[[a+1,b]],[[a,b+1]]],{n,d,divisor:g},[[n,d]]);
+ }
+ candidates=[];
+ for(let a=2;a<=6;a++)for(let b=a+1;b<=6;b++)for(let n=1;n<a;n++)for(let m=1;m<b;m++)if(gcd(n,a)===1&&gcd(m,b)===1&&lcm(a,b)<=12){
+  candidates.push([[n,a],[m,b]]);
+ }
+ for(const source of spread(candidates,24)){
+  const common=lcm(source[0][1],source[1][1]);
+  const correct=source.map(([n,d])=>[n*(common/d),common]);
+  add(2,'denominator',`2つの分数の分母を、どちらも ${common} にそろえよう。`,correct,
+   [[[correct[0][0]+1,common],correct[1]],[correct[0],[correct[1][0]+1,common]],correct.map(([n,d])=>[n*2,d*2])],{common},source);
+ }
+ for(let d=2;d<=9;d++)for(let quotient=2;quotient<=10;quotient++){
+  const n=d*quotient;if(n<10||n>50)continue;
+  const wrongs=[quotient+1,quotient-1,quotient+2,quotient-2,1,2,3,4,5].filter(x=>x>=1&&x<=10&&d*x<=50);
+  add(3,'division',`${n} ÷ ${d} ＝ □　あまりのない答えを選ぼう。`,quotient,wrongs,{n,d,quotient});
+ }
+ for(let n=10;n<=50;n++){
+  const possible=Array.from({length:8},(_,i)=>i+2),yes=possible.filter(d=>n%d===0&&n/d<=10),no=possible.filter(d=>n%d!==0);
+  if(!yes.length||no.length<3)continue;
+  const d=yes[n%yes.length];
+  add(3,'divisible',`${n} を割り切れる数は、次のうちどれ？`,d,no,{n,d,quotient:n/d});
+ }
+ candidates=[];
+ for(let a=2;a<=10;a++)for(let b=a+1;b<=12;b++)if(lcm(a,b)<=12)candidates.push([a,b]);
+ for(const [a,b] of spread(candidates,100)){
+  const x=lcm(a,b);
+  for(const count of [2,3]){
+   const correct=Array.from({length:count},(_,i)=>x*(i+1));
+   const wrongs=count===2?[[x,x*3],[x*2,x*3],[x+1,x*2+1]]:[[x,x*2,x*4],[x,x*3,x*4],[x+1,x*2+1,x*3+1]];
+   add(4,'multiples',`${a} と ${b} の公倍数を、小さい順に${count}個ならべたものを選ぼう。（0は入れません）`,correct,wrongs,{a,b,count});
   }
-  const banks = {
-    1: easy.map((p,i) => reduction(p,1,i)),
-    2: hard.map((p,i) => reduction(p,2,i)),
-    3: pairs.map((source,i) => {
-      const [a,b] = source, common = a[1]/gcd(a[1],b[1])*b[1]*(i%4===0?2:1);
-      const correct = source.map(([n,d]) => [n*(common/d),common]);
-      return { id:`3-${i}`, level:3, source, common, reward:300, correct,
-        wrong: [ [[correct[0][0]+1,common],correct[1]],
-          [correct[0],[correct[1][0]+1,common]], correct.map(([n,d])=>[n*2,d*2]) ] };
-    })
-  };
-  const decks = {1:[],2:[],3:[]}, previous = {};
-  function next(level) {
-    if (!decks[level].length) {
-      decks[level] = shuffle(banks[level]);
-      if (decks[level][decks[level].length-1].id === previous[level]) decks[level].reverse();
-    }
-    const question = decks[level].pop(); previous[level] = question.id;
-    return { ...question, options:shuffle([question.correct,...question.wrong]) };
+ }
+ candidates=[];
+ for(let a=2;a<=12;a++)for(let b=a+1;b<=24;b++)if(gcd(a,b)>1)candidates.push([a,b]);
+ for(const [a,b] of spread(candidates,30)){
+  const correct=divisors(gcd(a,b)),extra=Array.from({length:10},(_,i)=>i+2).find(x=>!correct.includes(x));
+  add(5,'commonDivisors',`${a} と ${b} の公約数を、すべてならべたものを選ぼう。`,correct,[correct.slice(1),correct.slice(0,-1),[...correct,extra].sort((x,y)=>x-y)],{a,b});
+ }
+ candidates=[];
+ for(let a=2;a<=9;a++)for(let b=a+1;b<=10;b++)if(lcm(a,b)<=20)candidates.push([a,b]);
+ for(const [a,b] of spread(candidates,30)){
+  const x=lcm(a,b);
+  add(6,'lcm',`${a} と ${b} の最小公倍数は？`,x,[x*2,x+1,x-1,a*b,a+b],{a,b});
+ }
+ candidates=[];
+ for(let a=2;a<=12;a++)for(let b=a+1;b<=24;b++)if(gcd(a,b)>1)candidates.push([a,b]);
+ for(const [a,b] of spread(candidates,30)){
+  const x=gcd(a,b);
+  add(7,'gcd',`${a} と ${b} の最大公約数は？`,x,[1,x+1,x*2,x+2],{a,b});
+ }
+ for(let n=4;n<=24;n++){
+  const correct=divisors(n),extra=Array.from({length:n+1},(_,i)=>i+2).find(x=>n%x!==0);
+  add(8,'divisors',`${n} の約数を、すべてならべたものを選ぼう。`,correct,[correct.slice(1),correct.slice(0,-1),[...correct,extra].sort((x,y)=>x-y)],{n});
+ }
+ const all=Object.values(banks).flat(),seen=new Set(),review=Object.fromEntries([0,...Object.keys(topics)].map(k=>[k,new Set()]));
+ const cycles=Object.fromEntries([0,...Object.keys(topics)].map(k=>[k,1]));let previous=null;
+ const pools={0:all,...banks};
+ // Small-number foundations, with no question repeats within a mixed cycle.
+ function next(topic){
+  topic=Number(topic);if(!pools[topic])throw Error('Unknown topic');
+  let candidates=pools[topic].filter(q=>!seen.has(q.id));
+  if(!candidates.length){
+   if(topic===0){seen.clear();for(const r of Object.values(review))r.clear();cycles[0]++;candidates=[...all];}
+   else {candidates=pools[topic].filter(q=>!review[topic].has(q.id));if(!candidates.length){review[topic].clear();cycles[topic]++;candidates=[...pools[topic]];}}
   }
-  const equal = (a,b) => JSON.stringify(a) === JSON.stringify(b);
-  const text = fractions => fractions.map(([n,d])=>`${n}/${d}`).join(" と ");
-  const html = fractions => fractions.map(([n,d])=>`<span class="fraction" role="img" aria-label="${d}分の${n}"><span aria-hidden="true">${n}</span><span aria-hidden="true">${d}</span></span>`).join('<span class="fraction-and">と</span>');
-  function explain(q, selected) {
-    let reason = "";
-    if (!equal(selected,q.correct)) {
-      if(q.level < 3) {
-        const [n,d] = selected[0], [sn,sd] = q.source[0];
-        reason = n*sd === sn*d ? "分数の大きさは同じだけど、まだ約分できるよ。これ以上約分できない分数を選ぼう。" : "分数の大きさが変わっているよ。分子と分母を、同じ数で割ろう。";
-      } else {
-        reason = selected.some(p=>p[1]!==q.common) ? `今回は、分母を問題で指定した${q.common}にそろえよう。` : "分母を何倍したか考えて、分子も同じ数でかけよう。";
-      }
-    }
-    if(q.level < 3) {
-      const [n,d]=q.source[0], [an,ad]=q.correct[0];
-      return `${reason} ${n}と${d}の最大公約数は${q.divisor}。${n}÷${q.divisor}＝${an}、${d}÷${q.divisor}＝${ad}。答えは${an}/${ad}（これ以上約分できない分数）だよ。`;
-    }
-    return reason + " " + q.source.map(([n,d],i)=>{
-      const factor=q.common/d;
-      return `${n}/${d}は分母・分子を${factor}倍するので、${n}×${factor}＝${q.correct[i][0]}、${d}×${factor}＝${q.common}。`;
-    }).join(" ") + `答えは${text(q.correct)}だよ。`;
+  const distinct=candidates.filter(q=>q.id!==previous);if(distinct.length)candidates=distinct;
+  const q=candidates[Math.floor(Math.random()*candidates.length)];seen.add(q.id);review[q.topic].add(q.id);previous=q.id;
+  return {...q,options:shuffle([q.correct,...q.wrong])};
+ }
+ const isFraction=value=>Array.isArray(value)&&Array.isArray(value[0]);
+ const text=value=>isFraction(value)?value.map(([n,d])=>`${n}/${d}`).join(' と '):Array.isArray(value)?value.join('、'):String(value);
+ const accessible=value=>isFraction(value)?value.map(([n,d])=>`${d}分の${n}`).join(' と '):text(value);
+ const html=value=>isFraction(value)?value.map(([n,d])=>`<span class="fraction" role="img" aria-label="${d}分の${n}"><span aria-hidden="true">${n}</span><span aria-hidden="true">${d}</span></span>`).join('<span class="fraction-and">と</span>'):`<span class="number-answer${Array.isArray(value)?' number-list':''}">${text(value)}</span>`;
+ const paired=n=>divisors(n).filter(d=>d*d<=n).map(d=>`${d}×${n/d}＝${n}`).join('、');
+ function explain(q,selected){
+  const wrong=!equal(selected,q.correct);let reason='',detail='';
+  switch(q.kind){
+   case 'reduction':{
+    const [n,d]=wrong?selected[0]:q.correct[0];
+    reason=wrong?(n*q.d===q.n*d?'分数の大きさは同じですが、まだ約分できます。':'分子と分母を同じ数で割らないと、分数の大きさが変わります。'):'';
+    detail=`${q.n}と${q.d}の最大公約数は${q.divisor}。${q.n}÷${q.divisor}＝${q.correct[0][0]}、${q.d}÷${q.divisor}＝${q.correct[0][1]}。これ以上約分できません。`;break;
+   }
+   case 'denominator':
+    reason=wrong?(selected.some(p=>p[1]!==q.common)?`今回は分母を${q.common}にそろえる指定です。`:'分母を何倍したか考え、分子も同じ数でかけます。'):'';
+    detail=q.source.map(([n,d],i)=>`${n}/${d}は、${n}×${q.common/d}＝${q.correct[i][0]}、${d}×${q.common/d}＝${q.common}。`).join(' ');break;
+   case 'division':
+    reason=wrong?`${q.d}×${selected}＝${q.d*selected}なので、${q.n}にもどりません。`:'';
+    detail=`${q.n}÷${q.d}＝${q.quotient}。${q.d}×${q.quotient}＝${q.n}でたしかめられます。あまりなく割れるので、${q.d}は${q.n}の約数です。`;break;
+   case 'divisible':
+    reason=wrong?`${q.n}÷${selected}は、商${Math.floor(q.n/selected)}・あまり${q.n%selected}で、割り切れません。`:'';
+    detail=`${q.n}÷${q.d}＝${q.quotient}、${q.d}×${q.quotient}＝${q.n}。あまり0なので、${q.d}は${q.n}の約数です。`;break;
+   case 'multiples':
+    reason=wrong?`両方の数の倍数を、小さい順に、ぬかさず${q.count}個ならべます。0は入れません。`:'';
+    detail=`最小公倍数は${q.correct[0]}。${q.correct[0]}÷${q.a}＝${q.correct[0]/q.a}、${q.correct[0]}÷${q.b}＝${q.correct[0]/q.b}。公倍数はその倍数なので、${text(q.correct)}です。`;break;
+   case 'commonDivisors':
+    reason=wrong?'片方だけの約数は公約数ではありません。1も入れて、共通する数をすべて選びます。':'';
+    detail=`${q.a}の約数は${text(divisors(q.a))}。${q.b}の約数は${text(divisors(q.b))}。両方にある数が${text(q.correct)}です。`;break;
+   case 'lcm':
+    reason=wrong?'両方の倍数であることに加えて、その中でいちばん小さい数を選びます。':'';
+    detail=`${q.a}の倍数は${Array.from({length:q.correct/q.a},(_,i)=>q.a*(i+1)).join('、')}。${q.b}の倍数は${Array.from({length:q.correct/q.b},(_,i)=>q.b*(i+1)).join('、')}。はじめて共通する数が${q.correct}です。`;break;
+   case 'gcd':
+    reason=wrong?'両方を割り切れる数の中で、いちばん大きい数を選びます。':'';
+    detail=`${q.a}の約数は${text(divisors(q.a))}。${q.b}の約数は${text(divisors(q.b))}。公約数${text(divisors(q.correct))}のうち最大は${q.correct}。${q.a}÷${q.correct}＝${q.a/q.correct}、${q.b}÷${q.correct}＝${q.b/q.correct}。`;break;
+   case 'divisors':
+    reason=wrong?'1とその数自身も約数です。割り切れる数を、もれなく集めます。':'';
+    detail=`かけ算の組は${paired(q.n)}。それぞれの組の数を小さい順に集めると${text(q.correct)}です。`;break;
   }
-  return { banks, next, equal, html, explain };
+  return `${reason} ${detail} 答えは${text(q.correct)}です。`;
+ }
+ function stats(topic=0){const pool=pools[Number(topic)];return {total:all.length,pool:pool.length,seen:pool.filter(q=>seen.has(q.id)).length,cycle:cycles[Number(topic)]};}
+ return {banks,all,topics,next,equal,html,text,accessible,explain,stats};
 })();

@@ -48,8 +48,27 @@ const STAGES = STAGE_NAMES.map((name,i) => {
     sky:p[0],hill:p[1],nearHill:p[2],grass:p[3]};
 });
 
-// 2026-10-19: spawn frequency is 80% of the previous version.
+// Recovered hard mode keeps enemy strength; frequency is 80% of the recovered version.
 const ENEMY_SPAWN_RATE = 0.8;
 function enemySpawnInterval(stage,time) {
   return Math.max(stage.minSpawn,stage.spawn-time/100)/ENEMY_SPAWN_RATE;
+}
+for(const stage of STAGES) {stage.enemyHP*=2;stage.enemyMultiplier=2;stage.hint="【高難易度】敵のHP・攻撃力2倍。不正解は所持金0円。味方15体・敵15体まで。";}
+const HARD_PATHS=[
+ ["basic","runner","samurai","lion"],
+ ["tank","box","viking","robot"],
+ ["mage","archer","witch","dragon"],
+ ["ninja","pirate","chef","farmer"],
+ ["knight","hammer","angel","king"]
+];
+function hardTeamForStage(index) {
+ const team=ALLY_KEYS.slice(0,5);
+ const advanced=[["samurai","lion"],["viking","robot"],["witch","dragon"],["chef","farmer"],["hammer","king"]];
+ for(let clear=0;clear<index;clear++) {const slot=clear%5,tier=Math.floor(clear/5)+1;team[slot]=tier<4?HARD_PATHS[slot][tier]:advanced[slot][(tier-4)%2];}
+ return team;
+}
+function hardChangeText(index) {
+ if(index>=STAGES.length-1) return "全30ステージクリア！ 次は最初の5種類で、ステージ1から再挑戦できます。";
+ const current=hardTeamForStage(index),next=hardTeamForStage(index+1),slot=index%5;
+ return "次のステージで「"+TYPES[current[slot]].name+"」→「"+TYPES[next[slot]].name+"」に自動入替。ほかの4種類は同じです。";
 }
